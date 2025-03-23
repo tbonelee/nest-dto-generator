@@ -52,13 +52,73 @@ interface ControllerInfo {
 }
 
 /**
+ * Check if a decorator is a Controller decorator
+ */
+function isControllerDecorator(decorator: ts.Decorator): boolean {
+  if (!ts.isCallExpression(decorator.expression)) return false;
+
+  const expression = decorator.expression.expression;
+  if (!ts.isIdentifier(expression)) return false;
+
+  return expression.text === 'Controller';
+}
+
+/**
+ * Get the path from a string literal or variable reference
+ */
+function getPathFromArgument(
+  arg: ts.Node,
+  program: ts.Program,
+): string | undefined {
+  if (ts.isStringLiteral(arg)) {
+    return arg.text;
+  }
+
+  if (ts.isIdentifier(arg)) {
+    const symbol = program.getTypeChecker().getSymbolAtLocation(arg);
+    if (!symbol) return undefined;
+
+    const declarations = symbol.getDeclarations();
+    if (!declarations?.length) return undefined;
+
+    const declaration = declarations[0];
+    if (!ts.isVariableDeclaration(declaration) || !declaration.initializer) {
+      return undefined;
+    }
+
+    if (ts.isStringLiteral(declaration.initializer)) {
+      return declaration.initializer.text;
+    }
+  }
+
+  return undefined;
+}
+
+/**
+ * Get the path from a Controller decorator
+ */
+function getControllerPath(
+  decorator: ts.Decorator,
+  program: ts.Program,
+): string | undefined {
+  if (!ts.isCallExpression(decorator.expression)) return undefined;
+
+  const firstArg = decorator.expression.arguments[0];
+  if (!firstArg) return undefined;
+
+  return getPathFromArgument(firstArg, program);
+}
+
+/**
  * Check if the class is a controller class and get its path.
  * Check by nestjs Controller decorator.
  * @param classes - The list of classes to check
+ * @param program - The TypeScript program
  * @returns The list of controller classes with their paths
  */
 export function filterControllerClasses(
   classes: ts.ClassDeclaration[],
+  program: ts.Program,
 ): ControllerInfo[] {
   return classes
     .map((cls) => {
@@ -67,24 +127,11 @@ export function filterControllerClasses(
         : undefined;
       if (!decorators) return null;
 
-      const controllerDecorator = decorators.find((decorator) => {
-        if (!ts.isCallExpression(decorator.expression)) return false;
-
-        const expression = decorator.expression.expression;
-        if (!ts.isIdentifier(expression)) return false;
-
-        return expression.text === 'Controller';
-      });
-
+      const controllerDecorator = decorators.find(isControllerDecorator);
       if (!controllerDecorator) return null;
 
-      let path = '';
-      if (ts.isCallExpression(controllerDecorator.expression)) {
-        const firstArg = controllerDecorator.expression.arguments[0];
-        if (firstArg && ts.isStringLiteral(firstArg)) {
-          path = firstArg.text;
-        }
-      }
+      const path = getControllerPath(controllerDecorator, program);
+      if (path === undefined) return null;
 
       return { class: cls, path };
     })

@@ -135,6 +135,7 @@ describe('src-resolver', () => {
         'user.controller.ts',
         'post.controller.ts',
         'comment.controller.ts',
+        'api.controller.ts',
       ];
 
       for (const file of fixtureFiles) {
@@ -168,9 +169,9 @@ describe('src-resolver', () => {
 
       const program = getProgram(tsconfigPath);
       const classes = extractClasses(program);
-      const controllers = filterControllerClasses(classes);
+      const controllers = filterControllerClasses(classes, program);
 
-      expect(controllers).toHaveLength(3);
+      expect(controllers).toHaveLength(4);
       const controllerInfos = controllers
         .map(({ class: cls, path }) => ({
           name: cls.name?.text || '',
@@ -179,6 +180,7 @@ describe('src-resolver', () => {
         .sort((a, b) => a.name.localeCompare(b.name));
 
       expect(controllerInfos).toEqual([
+        { name: 'ApiController', path: 'api/v1' },
         { name: 'CommentController', path: 'comments' },
         { name: 'PostController', path: 'posts' },
         { name: 'UserController', path: 'users' },
