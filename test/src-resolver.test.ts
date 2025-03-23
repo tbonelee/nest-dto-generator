@@ -5,6 +5,7 @@ import {
   getProgram,
   extractClasses,
   filterControllerClasses,
+  InvalidControllerDecoratorError,
 } from '../src/analyzers/src-resolver';
 import * as ts from 'typescript';
 
@@ -182,6 +183,78 @@ describe('src-resolver', () => {
         { name: 'RootController', path: [] },
         { name: 'VersionedController', path: ['v1', 'v2'] },
       ]);
+    });
+
+    it('should throw InvalidControllerDecoratorError for invalid decorator usage', async () => {
+      const tsconfigPath = join(tempDir, 'tsconfig.json');
+      const controllersDir = join(tempDir, 'controllers');
+      await mkdir(controllersDir);
+
+      // Create a file with invalid controller decorators
+      const invalidControllerContent = `
+        import { Controller } from '@nestjs/common';
+
+        // Invalid: empty array
+        @Controller([])
+        export class EmptyArrayController {}
+
+        // Invalid: non-string array element
+        @Controller([1, 'v1'])
+        export class NonStringArrayController {}
+
+        // Invalid: non-string path in options
+        @Controller({ path: 123 })
+        export class NonStringPathController {}
+
+        // Invalid: non-string variable
+        const INVALID_PREFIX = 123;
+        @Controller(INVALID_PREFIX)
+        export class NonStringVariableController {}
+      `;
+
+      await writeFile(
+        join(controllersDir, 'invalid.controller.ts'),
+        invalidControllerContent,
+      );
+      await writeFile(
+        tsconfigPath,
+        JSON.stringify(
+          {
+            compilerOptions: {
+              target: 'es2016',
+              module: 'commonjs',
+              experimentalDecorators: true,
+              emitDecoratorMetadata: true,
+              rootDir: tempDir,
+              skipLibCheck: true,
+              noResolve: true,
+              types: [],
+              lib: [],
+            },
+          },
+          null,
+          2,
+        ),
+      );
+
+      const program = getProgram(tsconfigPath);
+      const classes = extractClasses(program);
+
+      // Test each invalid case
+      const invalidClassNames = [
+        'EmptyArrayController',
+        'NonStringArrayController',
+        'NonStringPathController',
+        'NonStringVariableController',
+      ];
+
+      for (const name of invalidClassNames) {
+        const invalidClass = classes.find((cls) => cls.name?.text === name);
+        expect(invalidClass).toBeDefined();
+        expect(() => filterControllerClasses([invalidClass!], program)).toThrow(
+          InvalidControllerDecoratorError,
+        );
+      }
     });
   });
 });

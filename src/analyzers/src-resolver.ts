@@ -1,6 +1,16 @@
 import ts from 'typescript';
 import { dirname } from 'path';
 
+/**
+ * Error thrown when a Controller decorator is used incorrectly
+ */
+export class InvalidControllerDecoratorError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'InvalidControllerDecoratorError';
+  }
+}
+
 const formatHost: ts.FormatDiagnosticsHost = {
   getCanonicalFileName: (path) => path,
   getCurrentDirectory: () => ts.sys.getCurrentDirectory(),
@@ -63,6 +73,111 @@ function isControllerDecorator(decorator: ts.Decorator): boolean {
 }
 
 /**
+ * Get the path from a Controller decorator
+ */
+function getControllerPath(
+  decorator: ts.Decorator,
+  program: ts.Program,
+): string[] {
+  if (!ts.isCallExpression(decorator.expression)) {
+    throw new InvalidControllerDecoratorError(
+      'Controller decorator must be a function call',
+    );
+  }
+
+  const firstArg = decorator.expression.arguments[0];
+  if (!firstArg) return []; // No argument means empty path array
+
+  if (ts.isObjectLiteralExpression(firstArg)) {
+    return getPathFromOptions(firstArg, program);
+  }
+
+  if (ts.isArrayLiteralExpression(firstArg)) {
+    return getPathFromArray(firstArg.elements, program);
+  }
+
+  const path = getPathFromArgument(firstArg, program);
+  if (path === undefined) {
+    throw new InvalidControllerDecoratorError(
+      'Controller decorator path must be a string, string array, or ControllerOptions object',
+    );
+  }
+  return path;
+}
+
+/**
+ * Get the path from an array of path elements
+ */
+function getPathFromArray(
+  elements: ts.NodeArray<ts.Expression>,
+  program: ts.Program,
+): string[] {
+  if (elements.length === 0) {
+    throw new InvalidControllerDecoratorError(
+      'Controller decorator path array cannot be empty',
+    );
+  }
+
+  const paths: string[] = [];
+  for (const element of elements) {
+    if (ts.isStringLiteral(element)) {
+      paths.push(element.text);
+    } else {
+      const path = getPathFromArgument(element, program);
+      if (path) {
+        paths.push(...path);
+      } else {
+        throw new InvalidControllerDecoratorError(
+          'Controller decorator array elements must be strings or string variables',
+        );
+      }
+    }
+  }
+
+  return paths;
+}
+
+/**
+ * Get the path from an object literal (ControllerOptions)
+ */
+function getPathFromOptions(
+  arg: ts.ObjectLiteralExpression,
+  program: ts.Program,
+): string[] {
+  const pathProperty = arg.properties.find((prop) => {
+    if (!ts.isPropertyAssignment(prop)) return false;
+    if (!ts.isIdentifier(prop.name)) return false;
+    return prop.name.text === 'path';
+  });
+
+  // If path property is not present, return empty array
+  if (!pathProperty) return [];
+
+  if (!ts.isPropertyAssignment(pathProperty)) {
+    throw new InvalidControllerDecoratorError(
+      'Controller decorator path property must be a property assignment',
+    );
+  }
+
+  const initializer = pathProperty.initializer;
+  if (ts.isStringLiteral(initializer)) {
+    return [initializer.text];
+  }
+
+  if (ts.isArrayLiteralExpression(initializer)) {
+    return getPathFromArray(initializer.elements, program);
+  }
+
+  const path = getPathFromArgument(initializer, program);
+  if (path === undefined) {
+    throw new InvalidControllerDecoratorError(
+      'Controller decorator path property must be a string, string array, or string variable',
+    );
+  }
+  return path;
+}
+
+/**
  * Get the path from a string literal or variable reference
  */
 function getPathFromArgument(
@@ -91,83 +206,6 @@ function getPathFromArgument(
   }
 
   return undefined;
-}
-
-/**
- * Get the path from an array of path elements
- */
-function getPathFromArray(
-  elements: ts.NodeArray<ts.Expression>,
-  program: ts.Program,
-): string[] | undefined {
-  if (elements.length === 0) return undefined;
-
-  const paths: string[] = [];
-  for (const element of elements) {
-    if (ts.isStringLiteral(element)) {
-      paths.push(element.text);
-    } else {
-      const path = getPathFromArgument(element, program);
-      if (path) {
-        paths.push(...path);
-      }
-    }
-  }
-
-  return paths.length > 0 ? paths : undefined;
-}
-
-/**
- * Get the path from an object literal (ControllerOptions)
- */
-function getPathFromOptions(
-  arg: ts.ObjectLiteralExpression,
-  program: ts.Program,
-): string[] | undefined {
-  const pathProperty = arg.properties.find((prop) => {
-    if (!ts.isPropertyAssignment(prop)) return false;
-    if (!ts.isIdentifier(prop.name)) return false;
-    return prop.name.text === 'path';
-  });
-
-  // If path property is not present, return empty array
-  if (!pathProperty) return [];
-
-  if (!ts.isPropertyAssignment(pathProperty)) return undefined;
-
-  const initializer = pathProperty.initializer;
-  if (ts.isStringLiteral(initializer)) {
-    return [initializer.text];
-  }
-
-  if (ts.isArrayLiteralExpression(initializer)) {
-    return getPathFromArray(initializer.elements, program);
-  }
-
-  return getPathFromArgument(initializer, program);
-}
-
-/**
- * Get the path from a Controller decorator
- */
-function getControllerPath(
-  decorator: ts.Decorator,
-  program: ts.Program,
-): string[] | undefined {
-  if (!ts.isCallExpression(decorator.expression)) return undefined;
-
-  const firstArg = decorator.expression.arguments[0];
-  if (!firstArg) return []; // No argument means empty path array
-
-  if (ts.isObjectLiteralExpression(firstArg)) {
-    return getPathFromOptions(firstArg, program);
-  }
-
-  if (ts.isArrayLiteralExpression(firstArg)) {
-    return getPathFromArray(firstArg.elements, program);
-  }
-
-  return getPathFromArgument(firstArg, program);
 }
 
 /**

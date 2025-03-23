@@ -55,3 +55,23 @@ export class MixedArrayController {
     return [];
   }
 }
+
+// Invalid cases (commented out for testing)
+/*
+// Invalid: empty array
+@Controller([])
+export class EmptyArrayController {}
+
+// Invalid: non-string array element
+@Controller([1, 'v1'])
+export class NonStringArrayController {}
+
+// Invalid: non-string path in options
+@Controller({ path: 123 })
+export class NonStringPathController {}
+
+// Invalid: non-string variable
+const INVALID_PREFIX = 123;
+@Controller(INVALID_PREFIX)
+export class NonStringVariableController {}
+*/
