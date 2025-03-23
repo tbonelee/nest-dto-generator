@@ -175,11 +175,11 @@ describe('src-resolver', () => {
         .sort((a, b) => a.name.localeCompare(b.name));
 
       expect(controllerInfos).toEqual([
-        { name: 'ApiController', path: 'api/v1' },
-        { name: 'MixedArrayController', path: 'api' },
-        { name: 'OptionsController', path: 'options' },
-        { name: 'RootController', path: '' },
-        { name: 'VersionedController', path: 'v1' },
+        { name: 'ApiController', path: ['api/v1'] },
+        { name: 'MixedArrayController', path: ['api', 'v2'] },
+        { name: 'OptionsController', path: ['options'] },
+        { name: 'RootController', path: [] },
+        { name: 'VersionedController', path: ['v1', 'v2'] },
       ]);
     });
   });

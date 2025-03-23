@@ -1,6 +1,5 @@
 import ts from 'typescript';
-import { dirname, join } from 'path';
-import { homedir } from 'os';
+import { dirname } from 'path';
 
 const formatHost: ts.FormatDiagnosticsHost = {
   getCanonicalFileName: (path) => path,
@@ -48,7 +47,7 @@ export function extractClasses(program: ts.Program): ts.ClassDeclaration[] {
 
 interface ControllerInfo {
   class: ts.ClassDeclaration;
-  path: string;
+  path: string[];
 }
 
 /**
@@ -69,9 +68,9 @@ function isControllerDecorator(decorator: ts.Decorator): boolean {
 function getPathFromArgument(
   arg: ts.Node,
   program: ts.Program,
-): string | undefined {
+): string[] | undefined {
   if (ts.isStringLiteral(arg)) {
-    return arg.text;
+    return [arg.text];
   }
 
   if (ts.isIdentifier(arg)) {
@@ -87,7 +86,7 @@ function getPathFromArgument(
     }
 
     if (ts.isStringLiteral(declaration.initializer)) {
-      return declaration.initializer.text;
+      return [declaration.initializer.text];
     }
   }
 
@@ -100,15 +99,22 @@ function getPathFromArgument(
 function getPathFromArray(
   elements: ts.NodeArray<ts.Expression>,
   program: ts.Program,
-): string | undefined {
+): string[] | undefined {
   if (elements.length === 0) return undefined;
 
-  const firstElement = elements[0];
-  if (ts.isStringLiteral(firstElement)) {
-    return firstElement.text;
+  const paths: string[] = [];
+  for (const element of elements) {
+    if (ts.isStringLiteral(element)) {
+      paths.push(element.text);
+    } else {
+      const path = getPathFromArgument(element, program);
+      if (path) {
+        paths.push(...path);
+      }
+    }
   }
 
-  return getPathFromArgument(firstElement, program);
+  return paths.length > 0 ? paths : undefined;
 }
 
 /**
@@ -117,7 +123,7 @@ function getPathFromArray(
 function getPathFromOptions(
   arg: ts.ObjectLiteralExpression,
   program: ts.Program,
-): string | undefined {
+): string[] | undefined {
   const pathProperty = arg.properties.find((prop) => {
     if (!ts.isPropertyAssignment(prop)) return false;
     if (!ts.isIdentifier(prop.name)) return false;
@@ -128,7 +134,7 @@ function getPathFromOptions(
 
   const initializer = pathProperty.initializer;
   if (ts.isStringLiteral(initializer)) {
-    return initializer.text;
+    return [initializer.text];
   }
 
   if (ts.isArrayLiteralExpression(initializer)) {
@@ -144,11 +150,11 @@ function getPathFromOptions(
 function getControllerPath(
   decorator: ts.Decorator,
   program: ts.Program,
-): string | undefined {
+): string[] | undefined {
   if (!ts.isCallExpression(decorator.expression)) return undefined;
 
   const firstArg = decorator.expression.arguments[0];
-  if (!firstArg) return ''; // No argument means empty path
+  if (!firstArg) return []; // No argument means empty path array
 
   if (ts.isObjectLiteralExpression(firstArg)) {
     return getPathFromOptions(firstArg, program);
@@ -187,5 +193,5 @@ export function filterControllerClasses(
 
       return { class: cls, path };
     })
-    .filter((info): info is ControllerInfo => info !== null);
+    .filter((info) => info !== null);
 }
