@@ -44,3 +44,29 @@ export function extractClasses(program: ts.Program): ts.ClassDeclaration[] {
 
   return classes;
 }
+
+/**
+ * Check if the class is a controller class.
+ * Check by nestjs Controller decorator.
+ * @param classes - The list of classes to check
+ * @returns The list of controller classes
+ */
+export function filterControllerClasses(
+  classes: ts.ClassDeclaration[],
+): ts.ClassDeclaration[] {
+  return classes.filter((cls) => {
+    const decorators = ts.canHaveDecorators(cls)
+      ? ts.getDecorators(cls)
+      : undefined;
+    if (!decorators) return false;
+
+    return decorators.some((decorator) => {
+      if (!ts.isCallExpression(decorator.expression)) return false;
+
+      const expression = decorator.expression.expression;
+      if (!ts.isIdentifier(expression)) return false;
+
+      return expression.text === 'Controller';
+    });
+  });
+}

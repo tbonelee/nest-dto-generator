@@ -1,19 +1,21 @@
 import { mkdtemp, writeFile, mkdir, rm } from 'fs/promises';
 import { join } from 'path';
 import { tmpdir } from 'os';
-import { getProgram, extractClasses } from './src-resolver';
+import {
+  getProgram,
+  extractClasses,
+  filterControllerClasses,
+} from '../src/analyzers/src-resolver';
 import ts from 'typescript';
 
 describe('src-resolver', () => {
   let tempDir: string;
 
   beforeEach(async () => {
-    // Create a temporary directory for test files
     tempDir = await mkdtemp(join(tmpdir(), 'test-'));
   });
 
   afterEach(async () => {
-    // Clean up the temporary directory after each test
     if (tempDir) {
       await rm(tempDir, { recursive: true, force: true });
     }
@@ -21,20 +23,17 @@ describe('src-resolver', () => {
 
   describe('getProgram', () => {
     it('should create a program with TypeScript files', async () => {
-      // Create test TypeScript files
       const file1Path = join(tempDir, 'file1.ts');
       const file2Path = join(tempDir, 'file2.ts');
       const nodeModulesDir = join(tempDir, 'node_modules');
       const nodeModulesPath = join(nodeModulesDir, 'test.ts');
       const tsconfigPath = join(tempDir, 'tsconfig.json');
 
-      // Create TypeScript files
       await writeFile(file1Path, 'export const a = 1;');
       await writeFile(file2Path, 'export const b = 2;');
       await mkdir(nodeModulesDir);
       await writeFile(nodeModulesPath, 'export const c = 3;');
 
-      // Create tsconfig.json
       await writeFile(
         tsconfigPath,
         JSON.stringify(
@@ -56,8 +55,6 @@ describe('src-resolver', () => {
       );
 
       const program = getProgram(tsconfigPath);
-
-      // Verify that program is created and contains our test files
       const sourceFiles = program.getSourceFiles();
       const sourceFilePaths = sourceFiles.map(
         (file: ts.SourceFile) => file.fileName,
@@ -66,7 +63,6 @@ describe('src-resolver', () => {
       expect(sourceFilePaths).toContain(file1Path);
       expect(sourceFilePaths).toContain(file2Path);
 
-      // Verify that no files from node_modules are included
       const hasNodeModulesFiles = sourceFilePaths.some((path) =>
         path.includes('node_modules'),
       );
@@ -79,7 +75,6 @@ describe('src-resolver', () => {
       const filePath = join(tempDir, 'classes.ts');
       const tsconfigPath = join(tempDir, 'tsconfig.json');
 
-      // Create a TypeScript file with multiple classes
       const fileContent = `
         export class User {
           constructor(public name: string) {}
@@ -89,7 +84,6 @@ describe('src-resolver', () => {
           constructor(public title: string) {}
         }
 
-        // This should be ignored
         const notAClass = {};
 
         export class Comment {
@@ -128,22 +122,35 @@ describe('src-resolver', () => {
         'Comment',
       ]);
     });
+  });
 
-    it('should ignore classes without names', async () => {
-      const filePath = join(tempDir, 'anonymous-class.ts');
+  describe('filterControllerClasses', () => {
+    it('should identify controller classes', async () => {
       const tsconfigPath = join(tempDir, 'tsconfig.json');
+      const controllerPath = join(tempDir, 'user.controller.ts');
 
       const fileContent = `
-        export const anonymousClass = class {
-          constructor(public name: string) {}
-        };
+        import { Controller, Get, Post, Body } from '@nestjs/common';
 
-        export class NamedClass {
-          constructor(public title: string) {}
+        @Controller('users')
+        export class UserController {
+          @Get()
+          findAll() {
+            return [];
+          }
+
+          @Post()
+          create(@Body() createUserDto: any) {
+            return createUserDto;
+          }
+        }
+
+        export class NotAController {
+          method() {}
         }
       `;
 
-      await writeFile(filePath, fileContent);
+      await writeFile(controllerPath, fileContent);
       await writeFile(
         tsconfigPath,
         JSON.stringify(
@@ -151,6 +158,8 @@ describe('src-resolver', () => {
             compilerOptions: {
               target: 'es2016',
               module: 'commonjs',
+              experimentalDecorators: true,
+              emitDecoratorMetadata: true,
               rootDir: tempDir,
               skipLibCheck: true,
               noResolve: true,
@@ -165,9 +174,10 @@ describe('src-resolver', () => {
 
       const program = getProgram(tsconfigPath);
       const classes = extractClasses(program);
+      const controllers = filterControllerClasses(classes);
 
-      expect(classes).toHaveLength(1);
-      expect(classes[0].name?.text).toBe('NamedClass');
+      expect(controllers).toHaveLength(1);
+      expect(controllers[0].name?.text).toBe('UserController');
     });
   });
 });
