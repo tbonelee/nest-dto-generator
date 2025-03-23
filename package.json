@@ -1,8 +1,11 @@
 {
   "name": "nest-dto-generator",
-  "version": "1.0.0",
-  "description": "",
+  "version": "0.0.1",
+  "description": "NestJS DTO Generator",
   "main": "dist/index.js",
+  "bin": {
+    "nest-dto-generator": "./dist/index.js"
+  },
   "scripts": {
     "build": "tsc",
     "format": "prettier --write .",
@@ -11,6 +14,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",
     "@eslint/js": "^9.23.0",
+    "@types/commander": "^2.12.5",
     "@typescript-eslint/eslint-plugin": "^8.27.0",
     "@typescript-eslint/parser": "^8.27.0",
     "eslint": "^9.23.0",
@@ -26,5 +30,8 @@
   "lint-staged": {
     "**/*": "prettier --write --ignore-unknown"
   },
-  "packageManager": "pnpm@8.15.5+sha512.b051a32c7e695833b84926d3b29b8cca57254b589f0649d899c6e9d0edb670b91ec7e2a43459bae73759bb5ce619c3266f116bf931ce22d1ef1759a7e45aa96f"
+  "packageManager": "pnpm@8.15.5+sha512.b051a32c7e695833b84926d3b29b8cca57254b589f0649d899c6e9d0edb670b91ec7e2a43459bae73759bb5ce619c3266f116bf931ce22d1ef1759a7e45aa96f",
+  "dependencies": {
+    "commander": "^13.1.0"
+  }
 }
