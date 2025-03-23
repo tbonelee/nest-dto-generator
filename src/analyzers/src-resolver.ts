@@ -29,3 +29,18 @@ export function getProgram(tsconfigPath: string) {
     options: parsedConfig.options,
   });
 }
+
+export function extractClasses(program: ts.Program): ts.ClassDeclaration[] {
+  const sourceFiles = program.getSourceFiles();
+  const classes: ts.ClassDeclaration[] = [];
+
+  sourceFiles.forEach((file) => {
+    file.forEachChild((node) => {
+      if (ts.isClassDeclaration(node) && node.name) {
+        classes.push(node);
+      }
+    });
+  });
+
+  return classes;
+}
