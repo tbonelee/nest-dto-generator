@@ -1,4 +1,4 @@
-import { mkdtemp, writeFile, mkdir, rm } from 'fs/promises';
+import { mkdtemp, writeFile, mkdir, rm, readFile } from 'fs/promises';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import {
@@ -125,32 +125,26 @@ describe('src-resolver', () => {
   });
 
   describe('filterControllerClasses', () => {
-    it('should identify controller classes', async () => {
+    it('should identify controller classes from fixtures', async () => {
       const tsconfigPath = join(tempDir, 'tsconfig.json');
-      const controllerPath = join(tempDir, 'user.controller.ts');
+      const controllersDir = join(tempDir, 'controllers');
+      await mkdir(controllersDir);
 
-      const fileContent = `
-        import { Controller, Get, Post, Body } from '@nestjs/common';
+      // Copy fixture files to temp directory
+      const fixtureFiles = [
+        'user.controller.ts',
+        'post.controller.ts',
+        'comment.controller.ts',
+      ];
 
-        @Controller('users')
-        export class UserController {
-          @Get()
-          findAll() {
-            return [];
-          }
+      for (const file of fixtureFiles) {
+        const content = await readFile(
+          join(__dirname, 'fixtures/multiple-controllers', file),
+          'utf-8',
+        );
+        await writeFile(join(controllersDir, file), content);
+      }
 
-          @Post()
-          create(@Body() createUserDto: any) {
-            return createUserDto;
-          }
-        }
-
-        export class NotAController {
-          method() {}
-        }
-      `;
-
-      await writeFile(controllerPath, fileContent);
       await writeFile(
         tsconfigPath,
         JSON.stringify(
@@ -176,8 +170,11 @@ describe('src-resolver', () => {
       const classes = extractClasses(program);
       const controllers = filterControllerClasses(classes);
 
-      expect(controllers).toHaveLength(1);
-      expect(controllers[0].name?.text).toBe('UserController');
+      expect(controllers).toHaveLength(3);
+      const controllerNames = controllers.map((cls) => cls.name?.text).sort();
+      expect(controllerNames).toEqual(
+        ['CommentController', 'PostController', 'UserController'].sort(),
+      );
     });
   });
 });
