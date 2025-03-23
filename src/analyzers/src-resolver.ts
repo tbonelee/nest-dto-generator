@@ -130,7 +130,10 @@ function getPathFromOptions(
     return prop.name.text === 'path';
   });
 
-  if (!pathProperty || !ts.isPropertyAssignment(pathProperty)) return undefined;
+  // If path property is not present, return empty array
+  if (!pathProperty) return [];
+
+  if (!ts.isPropertyAssignment(pathProperty)) return undefined;
 
   const initializer = pathProperty.initializer;
   if (ts.isStringLiteral(initializer)) {

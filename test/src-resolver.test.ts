@@ -166,7 +166,7 @@ describe('src-resolver', () => {
       const classes = extractClasses(program);
       const controllers = filterControllerClasses(classes, program);
 
-      expect(controllers).toHaveLength(5);
+      expect(controllers).toHaveLength(6);
       const controllerInfos = controllers
         .map(({ class: cls, path }) => ({
           name: cls.name?.text || '',
@@ -177,6 +177,7 @@ describe('src-resolver', () => {
       expect(controllerInfos).toEqual([
         { name: 'ApiController', path: ['api/v1'] },
         { name: 'MixedArrayController', path: ['api', 'v2'] },
+        { name: 'NoPathOptionsController', path: [] },
         { name: 'OptionsController', path: ['options'] },
         { name: 'RootController', path: [] },
         { name: 'VersionedController', path: ['v1', 'v2'] },

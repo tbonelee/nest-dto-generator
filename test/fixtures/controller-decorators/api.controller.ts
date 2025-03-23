@@ -37,6 +37,15 @@ export class OptionsController {
   }
 }
 
+// Options object case without path
+@Controller({ host: 'example.com' })
+export class NoPathOptionsController {
+  @Get()
+  findAll() {
+    return [];
+  }
+}
+
 // Mixed array case with literal and variable
 const API_VERSION = 'v2';
 @Controller(['api', API_VERSION])
