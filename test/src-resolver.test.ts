@@ -171,10 +171,18 @@ describe('src-resolver', () => {
       const controllers = filterControllerClasses(classes);
 
       expect(controllers).toHaveLength(3);
-      const controllerNames = controllers.map((cls) => cls.name?.text).sort();
-      expect(controllerNames).toEqual(
-        ['CommentController', 'PostController', 'UserController'].sort(),
-      );
+      const controllerInfos = controllers
+        .map(({ class: cls, path }) => ({
+          name: cls.name?.text || '',
+          path,
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+
+      expect(controllerInfos).toEqual([
+        { name: 'CommentController', path: 'comments' },
+        { name: 'PostController', path: 'posts' },
+        { name: 'UserController', path: 'users' },
+      ]);
     });
   });
 });

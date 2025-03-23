@@ -1,5 +1,6 @@
 import ts from 'typescript';
-import { dirname } from 'path';
+import { dirname, join } from 'path';
+import { homedir } from 'os';
 
 const formatHost: ts.FormatDiagnosticsHost = {
   getCanonicalFileName: (path) => path,
@@ -45,28 +46,47 @@ export function extractClasses(program: ts.Program): ts.ClassDeclaration[] {
   return classes;
 }
 
+interface ControllerInfo {
+  class: ts.ClassDeclaration;
+  path: string;
+}
+
 /**
- * Check if the class is a controller class.
+ * Check if the class is a controller class and get its path.
  * Check by nestjs Controller decorator.
  * @param classes - The list of classes to check
- * @returns The list of controller classes
+ * @returns The list of controller classes with their paths
  */
 export function filterControllerClasses(
   classes: ts.ClassDeclaration[],
-): ts.ClassDeclaration[] {
-  return classes.filter((cls) => {
-    const decorators = ts.canHaveDecorators(cls)
-      ? ts.getDecorators(cls)
-      : undefined;
-    if (!decorators) return false;
+): ControllerInfo[] {
+  return classes
+    .map((cls) => {
+      const decorators = ts.canHaveDecorators(cls)
+        ? ts.getDecorators(cls)
+        : undefined;
+      if (!decorators) return null;
 
-    return decorators.some((decorator) => {
-      if (!ts.isCallExpression(decorator.expression)) return false;
+      const controllerDecorator = decorators.find((decorator) => {
+        if (!ts.isCallExpression(decorator.expression)) return false;
 
-      const expression = decorator.expression.expression;
-      if (!ts.isIdentifier(expression)) return false;
+        const expression = decorator.expression.expression;
+        if (!ts.isIdentifier(expression)) return false;
 
-      return expression.text === 'Controller';
-    });
-  });
+        return expression.text === 'Controller';
+      });
+
+      if (!controllerDecorator) return null;
+
+      let path = '';
+      if (ts.isCallExpression(controllerDecorator.expression)) {
+        const firstArg = controllerDecorator.expression.arguments[0];
+        if (firstArg && ts.isStringLiteral(firstArg)) {
+          path = firstArg.text;
+        }
+      }
+
+      return { class: cls, path };
+    })
+    .filter((info): info is ControllerInfo => info !== null);
 }
