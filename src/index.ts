@@ -2,6 +2,7 @@
 
 import { Command } from 'commander';
 import { version } from '../package.json';
+import { generateCommand } from './commands/generate';
 
 const program = new Command();
 
@@ -10,6 +11,9 @@ program
   .description('NestJS DTO 생성기')
   .version(version);
 
-program.parse();
+program
+  .command('generate')
+  .description('Generate DTOs')
+  .action(generateCommand);
 
-console.log('Happy developing ✨');
+program.parse();
