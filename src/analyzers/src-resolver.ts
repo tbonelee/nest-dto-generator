@@ -95,6 +95,50 @@ function getPathFromArgument(
 }
 
 /**
+ * Get the path from an array of path elements
+ */
+function getPathFromArray(
+  elements: ts.NodeArray<ts.Expression>,
+  program: ts.Program,
+): string | undefined {
+  if (elements.length === 0) return undefined;
+
+  const firstElement = elements[0];
+  if (ts.isStringLiteral(firstElement)) {
+    return firstElement.text;
+  }
+
+  return getPathFromArgument(firstElement, program);
+}
+
+/**
+ * Get the path from an object literal (ControllerOptions)
+ */
+function getPathFromOptions(
+  arg: ts.ObjectLiteralExpression,
+  program: ts.Program,
+): string | undefined {
+  const pathProperty = arg.properties.find((prop) => {
+    if (!ts.isPropertyAssignment(prop)) return false;
+    if (!ts.isIdentifier(prop.name)) return false;
+    return prop.name.text === 'path';
+  });
+
+  if (!pathProperty || !ts.isPropertyAssignment(pathProperty)) return undefined;
+
+  const initializer = pathProperty.initializer;
+  if (ts.isStringLiteral(initializer)) {
+    return initializer.text;
+  }
+
+  if (ts.isArrayLiteralExpression(initializer)) {
+    return getPathFromArray(initializer.elements, program);
+  }
+
+  return getPathFromArgument(initializer, program);
+}
+
+/**
  * Get the path from a Controller decorator
  */
 function getControllerPath(
@@ -104,7 +148,15 @@ function getControllerPath(
   if (!ts.isCallExpression(decorator.expression)) return undefined;
 
   const firstArg = decorator.expression.arguments[0];
-  if (!firstArg) return undefined;
+  if (!firstArg) return ''; // No argument means empty path
+
+  if (ts.isObjectLiteralExpression(firstArg)) {
+    return getPathFromOptions(firstArg, program);
+  }
+
+  if (ts.isArrayLiteralExpression(firstArg)) {
+    return getPathFromArray(firstArg.elements, program);
+  }
 
   return getPathFromArgument(firstArg, program);
 }

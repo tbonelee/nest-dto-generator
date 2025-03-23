@@ -131,16 +131,11 @@ describe('src-resolver', () => {
       await mkdir(controllersDir);
 
       // Copy fixture files to temp directory
-      const fixtureFiles = [
-        'user.controller.ts',
-        'post.controller.ts',
-        'comment.controller.ts',
-        'api.controller.ts',
-      ];
+      const fixtureFiles = ['api.controller.ts'];
 
       for (const file of fixtureFiles) {
         const content = await readFile(
-          join(__dirname, 'fixtures/multiple-controllers', file),
+          join(__dirname, 'fixtures/controller-decorators', file),
           'utf-8',
         );
         await writeFile(join(controllersDir, file), content);
@@ -171,7 +166,7 @@ describe('src-resolver', () => {
       const classes = extractClasses(program);
       const controllers = filterControllerClasses(classes, program);
 
-      expect(controllers).toHaveLength(4);
+      expect(controllers).toHaveLength(5);
       const controllerInfos = controllers
         .map(({ class: cls, path }) => ({
           name: cls.name?.text || '',
@@ -181,9 +176,10 @@ describe('src-resolver', () => {
 
       expect(controllerInfos).toEqual([
         { name: 'ApiController', path: 'api/v1' },
-        { name: 'CommentController', path: 'comments' },
-        { name: 'PostController', path: 'posts' },
-        { name: 'UserController', path: 'users' },
+        { name: 'MixedArrayController', path: 'api' },
+        { name: 'OptionsController', path: 'options' },
+        { name: 'RootController', path: '' },
+        { name: 'VersionedController', path: 'v1' },
       ]);
     });
   });
