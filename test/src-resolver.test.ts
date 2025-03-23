@@ -6,7 +6,7 @@ import {
   extractClasses,
   filterControllerClasses,
 } from '../src/analyzers/src-resolver';
-import ts from 'typescript';
+import * as ts from 'typescript';
 
 describe('src-resolver', () => {
   let tempDir: string;

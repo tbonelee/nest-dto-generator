@@ -20,10 +20,6 @@
     "resolveJsonModule": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "test", "dist"],
-  "ts-node": {
-    "files": true
-  },
-  "files": ["jest.config.ts"]
+  "include": ["src/**/*", "test/**/*"],
+  "exclude": ["node_modules", "dist"]
 }

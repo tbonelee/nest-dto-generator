@@ -8,7 +8,7 @@ const config: Config.InitialOptions = {
     '^.+\\.(t|j)s$': [
       'ts-jest',
       {
-        tsconfig: 'tsconfig.test.json',
+        tsconfig: 'tsconfig.json',
       },
     ],
   },

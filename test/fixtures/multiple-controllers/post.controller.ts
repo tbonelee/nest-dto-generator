@@ -1,3 +1,5 @@
+import { Controller, Get, Post, Body } from '@nestjs/common';
+
 @Controller('posts')
 export class PostController {
   @Get()
