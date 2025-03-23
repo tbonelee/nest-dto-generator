@@ -132,7 +132,11 @@ describe('src-resolver', () => {
       await mkdir(controllersDir);
 
       // Copy fixture files to temp directory
-      const fixtureFiles = ['api.controller.ts'];
+      const fixtureFiles = [
+        'api.controller.ts',
+        'constants.ts',
+        'imported-path.controller.ts',
+      ];
 
       for (const file of fixtureFiles) {
         const content = await readFile(
@@ -167,7 +171,7 @@ describe('src-resolver', () => {
       const classes = extractClasses(program);
       const controllers = filterControllerClasses(classes, program);
 
-      expect(controllers).toHaveLength(6);
+      expect(controllers).toHaveLength(10);
       const controllerInfos = controllers
         .map(({ class: cls, path }) => ({
           name: cls.name?.text || '',
@@ -177,6 +181,10 @@ describe('src-resolver', () => {
 
       expect(controllerInfos).toEqual([
         { name: 'ApiController', path: ['api/v1'] },
+        { name: 'ImportedConfigController', path: ['config-path'] },
+        { name: 'ImportedPathArrayController', path: ['api', 'v3'] },
+        { name: 'ImportedPathsArrayController', path: ['users', 'profiles'] },
+        { name: 'ImportedPathStringController', path: ['api'] },
         { name: 'MixedArrayController', path: ['api', 'v2'] },
         { name: 'NoPathOptionsController', path: [] },
         { name: 'OptionsController', path: ['options'] },

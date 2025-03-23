@@ -73,6 +73,63 @@ function isControllerDecorator(decorator: ts.Decorator): boolean {
 }
 
 /**
+ * Resolve a variable to its value by following imports and declarations
+ */
+function resolveVariable(
+  node: ts.Node,
+  program: ts.Program,
+): string | string[] | ts.ObjectLiteralExpression | undefined {
+  const typeChecker = program.getTypeChecker();
+  let symbol = typeChecker.getSymbolAtLocation(node);
+  if (!symbol) return undefined;
+
+  // If the symbol is from an import, follow it to its original declaration
+  if (symbol.flags & ts.SymbolFlags.Alias) {
+    symbol = typeChecker.getAliasedSymbol(symbol);
+  }
+
+  const declarations = symbol.getDeclarations();
+  if (!declarations?.length) return undefined;
+
+  const declaration = declarations[0];
+  if (!ts.isVariableDeclaration(declaration)) return undefined;
+
+  const initializer = declaration.initializer;
+  if (!initializer) return undefined;
+
+  if (ts.isStringLiteral(initializer)) {
+    return initializer.text;
+  }
+
+  if (ts.isArrayLiteralExpression(initializer)) {
+    const elements: string[] = [];
+    for (const element of initializer.elements) {
+      if (ts.isStringLiteral(element)) {
+        elements.push(element.text);
+      } else if (ts.isIdentifier(element)) {
+        const resolved = resolveVariable(element, program);
+        if (typeof resolved === 'string') {
+          elements.push(resolved);
+        } else if (Array.isArray(resolved)) {
+          elements.push(...resolved);
+        } else {
+          return undefined;
+        }
+      } else {
+        return undefined;
+      }
+    }
+    return elements;
+  }
+
+  if (ts.isObjectLiteralExpression(initializer)) {
+    return initializer;
+  }
+
+  return undefined;
+}
+
+/**
  * Get the path from a Controller decorator
  */
 function getControllerPath(
@@ -122,15 +179,21 @@ function getPathFromArray(
   for (const element of elements) {
     if (ts.isStringLiteral(element)) {
       paths.push(element.text);
-    } else {
-      const path = getPathFromArgument(element, program);
-      if (path) {
-        paths.push(...path);
+    } else if (ts.isIdentifier(element)) {
+      const resolved = resolveVariable(element, program);
+      if (typeof resolved === 'string') {
+        paths.push(resolved);
+      } else if (Array.isArray(resolved)) {
+        paths.push(...resolved);
       } else {
         throw new InvalidControllerDecoratorError(
           'Controller decorator array elements must be strings or string variables',
         );
       }
+    } else {
+      throw new InvalidControllerDecoratorError(
+        'Controller decorator array elements must be strings or string variables',
+      );
     }
   }
 
@@ -168,13 +231,19 @@ function getPathFromOptions(
     return getPathFromArray(initializer.elements, program);
   }
 
-  const path = getPathFromArgument(initializer, program);
-  if (path === undefined) {
-    throw new InvalidControllerDecoratorError(
-      'Controller decorator path property must be a string, string array, or string variable',
-    );
+  if (ts.isIdentifier(initializer)) {
+    const resolved = resolveVariable(initializer, program);
+    if (typeof resolved === 'string') {
+      return [resolved];
+    }
+    if (Array.isArray(resolved)) {
+      return resolved;
+    }
   }
-  return path;
+
+  throw new InvalidControllerDecoratorError(
+    'Controller decorator path property must be a string, string array, or string variable',
+  );
 }
 
 /**
@@ -189,19 +258,15 @@ function getPathFromArgument(
   }
 
   if (ts.isIdentifier(arg)) {
-    const symbol = program.getTypeChecker().getSymbolAtLocation(arg);
-    if (!symbol) return undefined;
-
-    const declarations = symbol.getDeclarations();
-    if (!declarations?.length) return undefined;
-
-    const declaration = declarations[0];
-    if (!ts.isVariableDeclaration(declaration) || !declaration.initializer) {
-      return undefined;
+    const resolved = resolveVariable(arg, program);
+    if (typeof resolved === 'string') {
+      return [resolved];
     }
-
-    if (ts.isStringLiteral(declaration.initializer)) {
-      return [declaration.initializer.text];
+    if (Array.isArray(resolved)) {
+      return resolved;
+    }
+    if (resolved && ts.isObjectLiteralExpression(resolved)) {
+      return getPathFromOptions(resolved, program);
     }
   }
 
