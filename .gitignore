@@ -11,3 +11,7 @@ yarn-error.log*
 .vscode/*
 
 .cursor
+
+coverage/*
+
+dist/**/*
