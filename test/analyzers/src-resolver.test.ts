@@ -6,7 +6,7 @@ import {
   extractClasses,
   filterControllerClasses,
   InvalidControllerDecoratorError,
-} from '../src/analyzers/src-resolver';
+} from '../../src/analyzers/src-resolver';
 import * as ts from 'typescript';
 
 describe('src-resolver', () => {

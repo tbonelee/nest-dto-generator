@@ -1,7 +1,7 @@
 import {
   ResolverResult,
   resolveToLiteral,
-} from '../src/analyzers/expression-resolver';
+} from '../../src/analyzers/expression-resolver';
 import ts from 'typescript';
 
 describe('resolveToLiteral', () => {
