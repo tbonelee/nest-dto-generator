@@ -50,6 +50,11 @@ export function resolveToLiteral(
   program: ts.Program,
 ): ResolverResult {
   switch (expr.kind) {
+    case ts.SyntaxKind.TemplateExpression:
+      return resolveTemplateExpressionToLiteral(
+        expr as ts.TemplateExpression,
+        program,
+      );
     case ts.SyntaxKind.NumericLiteral:
       return {
         valueType: 'NumericLiteral',
@@ -185,4 +190,66 @@ function resolveTypeToLiteral(typeObject: ts.Type): ResolverResult {
   }
 
   return { valueType: undefined, value: undefined };
+}
+
+function resolveTemplateExpressionToLiteral(
+  expr: ts.TemplateExpression,
+  program: ts.Program,
+): ResolverResult {
+  const templateSpans = expr.templateSpans;
+  const mappedSpans = templateSpans.map((span) =>
+    mapTemplateSpan(span, program),
+  );
+  if (mappedSpans.every((span) => span.canBeResolved)) {
+    return {
+      valueType: 'StringLiteral',
+      value:
+        expr.head.text + mappedSpans.map((span) => span.stringLiteral).join(''),
+    };
+  }
+  return { valueType: undefined, value: undefined };
+}
+
+function mapTemplateSpan(
+  node: ts.TemplateSpan,
+  program: ts.Program,
+): {
+  canBeResolved: boolean;
+  stringLiteral: string;
+} {
+  const expression = node.expression;
+  const literal = node.literal;
+  const exprResult = resolveToLiteral(expression, program);
+  switch (exprResult.valueType) {
+    case 'StringLiteral':
+      return {
+        canBeResolved: true,
+        stringLiteral: exprResult.value + literal.text,
+      };
+    case 'NumericLiteral':
+      return {
+        canBeResolved: true,
+        stringLiteral: exprResult.value.toString() + literal.text,
+      };
+    case 'BigIntLiteral':
+      return {
+        canBeResolved: true,
+        stringLiteral: exprResult.value.toString() + literal.text,
+      };
+    case 'TrueKeyword':
+      return {
+        canBeResolved: true,
+        stringLiteral: 'true' + literal.text,
+      };
+    case 'FalseKeyword':
+      return {
+        canBeResolved: true,
+        stringLiteral: 'false' + literal.text,
+      };
+    default:
+      return {
+        canBeResolved: false,
+        stringLiteral: '',
+      };
+  }
 }
