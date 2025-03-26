@@ -34,10 +34,6 @@ export type ResolverResult =
       value: Record<string, ResolverResult>;
     }
   | {
-      valueType: 'Identifier';
-      value: string;
-    }
-  | {
       valueType: undefined;
       value: undefined;
     };
@@ -101,6 +97,11 @@ export function resolveToLiteral(
         (expr as ts.ParenthesizedExpression).expression,
         program,
       );
+    case ts.SyntaxKind.ComputedPropertyName:
+      return resolveToLiteral(
+        (expr as ts.ComputedPropertyName).expression,
+        program,
+      );
     case ts.SyntaxKind.ObjectLiteralExpression:
       return {
         valueType: 'ObjectLiteralExpression',
@@ -127,8 +128,38 @@ export function resolveToLiteral(
           // @ts-expect-error: Identifier.escapedText is not typed
           value: (expr as ts.Identifier).escapedText,
         };
+      } else {
+        return resolveSymbolToLiteral(symbol, program);
       }
     }
   }
+  return { valueType: undefined, value: undefined };
+}
+
+function resolveSymbolToLiteral(
+  symbol: ts.Symbol,
+  program: ts.Program,
+): ResolverResult {
+  const typeChecker = program.getTypeChecker();
+  const type = typeChecker.getTypeOfSymbol(symbol);
+  if (symbol.flags === ts.SymbolFlags.Property) {
+    return {
+      valueType: 'StringLiteral',
+      value: symbol.escapedName as string,
+    };
+  }
+  return resolveTypeToLiteral(type);
+}
+
+function resolveTypeToLiteral(typeObject: ts.Type): ResolverResult {
+  switch (typeObject.flags) {
+    case ts.TypeFlags.StringLiteral:
+      return {
+        valueType: 'StringLiteral',
+        value: (typeObject as ts.StringLiteralType).value,
+      };
+    case ts.TypeFlags.Number:
+  }
+
   return { valueType: undefined, value: undefined };
 }
