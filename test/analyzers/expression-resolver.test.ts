@@ -3,100 +3,198 @@ import {
   resolveToLiteral,
 } from '../../src/analyzers/expression-resolver';
 import ts from 'typescript';
+import { expect } from '@jest/globals';
 
 describe('resolveToLiteral', () => {
-  const factory = ts.factory;
-  it('should resolve numeric literal correctly', () => {
-    const numericLiteral = factory.createNumericLiteral('123');
-    const result = resolveToLiteral(numericLiteral);
+  const parseCode = (
+    code: string,
+  ): {
+    statements: ts.NodeArray<ts.Statement>;
+    program: ts.Program;
+  } => {
+    const sourceFile = ts.createSourceFile(
+      'test.ts',
+      code,
+      ts.ScriptTarget.Latest,
+      true,
+    );
+    return {
+      statements: sourceFile.statements,
+      program: ts.createProgram({
+        rootNames: [sourceFile.fileName],
+        options: { target: ts.ScriptTarget.Latest },
+      }),
+    };
+  };
 
-    expect(result.valueType).toBe('NumericLiteral');
-    expect(result.value).toBe(123);
+  const getFirstExpression = (stmts: ts.NodeArray<ts.Statement>): ts.Node => {
+    expect(stmts.length).toBeGreaterThanOrEqual(1);
+    expect(stmts[0].kind).toBe(ts.SyntaxKind.ExpressionStatement);
+
+    return (stmts[0] as ts.ExpressionStatement).expression;
+  };
+
+  describe('numeric literal', () => {
+    it('should resolve numeric literal correctly', () => {
+      const { statements, program } = parseCode('123');
+
+      const expression = getFirstExpression(statements);
+      const result = resolveToLiteral(expression, program);
+
+      expect(result.valueType).toBe('NumericLiteral');
+      expect(result.value).toBe(123);
+    });
   });
 
-  it('should resolve big int literal correctly', () => {
-    const bigIntLiteral = factory.createBigIntLiteral('123n');
-    const result = resolveToLiteral(bigIntLiteral);
+  describe('big int literal', () => {
+    it('should resolve big int literal correctly', () => {
+      const { statements, program } = parseCode('123n');
 
-    expect(result.valueType).toBe('BigIntLiteral');
-    expect(result.value).toBe(123n);
+      const expression = getFirstExpression(statements);
+      const result = resolveToLiteral(expression, program);
+
+      expect(result.valueType).toBe('BigIntLiteral');
+      expect(result.value).toBe(123n);
+    });
   });
 
-  it('should resolve string literal correctly', () => {
-    const stringLiteral = factory.createStringLiteral('hello');
-    const result = resolveToLiteral(stringLiteral);
+  describe('string literal', () => {
+    it('should resolve double quoted string literal correctly', () => {
+      const { statements, program } = parseCode('"hello"');
 
-    expect(result.valueType).toBe('StringLiteral');
-    expect(result.value).toBe('hello');
+      const expression = getFirstExpression(statements);
+      const result = resolveToLiteral(expression, program);
+
+      expect(result.valueType).toBe('StringLiteral');
+      expect(result.value).toBe('hello');
+    });
+
+    it('should resolve single quoted string literal correctly', () => {
+      const { statements, program } = parseCode("'hello'");
+
+      const expression = getFirstExpression(statements);
+      const result = resolveToLiteral(expression, program);
+
+      expect(result.valueType).toBe('StringLiteral');
+      expect(result.value).toBe('hello');
+    });
+
+    it('should resolve template literal with no substitution correctly', () => {
+      const { statements, program } = parseCode('`hello`');
+
+      const expression = getFirstExpression(statements);
+      const result = resolveToLiteral(expression, program);
+
+      expect(result.valueType).toBe('StringLiteral');
+      expect(result.value).toBe('hello');
+    });
   });
 
-  it('should resolve template literal with no substitution correctly', () => {
-    const templateLiteral =
-      factory.createNoSubstitutionTemplateLiteral('hello');
-    const result = resolveToLiteral(templateLiteral);
+  describe('template literal', () => {
+    it('should resolve template literal with no substitution correctly', () => {
+      const { statements, program } = parseCode('`hello`');
 
-    expect(result.valueType).toBe('StringLiteral');
-    expect(result.value).toBe('hello');
+      const expression = getFirstExpression(statements);
+      const result = resolveToLiteral(expression, program);
+
+      expect(result.valueType).toBe('StringLiteral');
+      expect(result.value).toBe('hello');
+    });
   });
 
-  it('should resolve regular expression literal correctly', () => {
-    const factory = ts.factory;
-    const regexLiteral = factory.createRegularExpressionLiteral('/hello/');
-    const result = resolveToLiteral(regexLiteral);
+  describe('regular expression literal', () => {
+    it('should resolve regular expression literal correctly', () => {
+      const { statements, program } = parseCode('/hello/');
 
-    expect(result.valueType).toBe('RegularExpressionLiteral');
-    expect(result.value).toBeInstanceOf(RegExp);
-    expect((result.value as RegExp).source).toBe('hello');
+      const expression = getFirstExpression(statements);
+      const result = resolveToLiteral(expression, program);
+
+      expect(result.valueType).toBe('RegularExpressionLiteral');
+      expect(result.value).toBeInstanceOf(RegExp);
+      expect((result.value as RegExp).source).toBe('hello');
+    });
   });
 
-  it('should resolve true keyword correctly', () => {
-    const trueKeyword = factory.createTrue();
-    const result = resolveToLiteral(trueKeyword);
+  describe('true keyword', () => {
+    it('should resolve true keyword correctly', () => {
+      const { statements, program } = parseCode('true');
 
-    expect(result.valueType).toBe('TrueKeyword');
-    expect(result.value).toBe(true);
+      const expression = getFirstExpression(statements);
+      const result = resolveToLiteral(expression, program);
+
+      expect(result.valueType).toBe('TrueKeyword');
+      expect(result.value).toBe(true);
+    });
   });
 
-  it('should resolve false keyword correctly', () => {
-    const falseKeyword = factory.createFalse();
-    const result = resolveToLiteral(falseKeyword);
+  describe('false keyword', () => {
+    it('should resolve false keyword correctly', () => {
+      const { statements, program } = parseCode('false');
 
-    expect(result.valueType).toBe('FalseKeyword');
-    expect(result.value).toBe(false);
+      const expression = getFirstExpression(statements);
+      const result = resolveToLiteral(expression, program);
+
+      expect(result.valueType).toBe('FalseKeyword');
+      expect(result.value).toBe(false);
+    });
   });
 
-  it('should resolve array literal correctly', () => {
-    const factory = ts.factory;
-    const arrayLiteral = factory.createArrayLiteralExpression([
-      factory.createStringLiteral('hello'),
-      factory.createNumericLiteral('123'),
-    ]);
-    const result = resolveToLiteral(arrayLiteral);
+  describe('array literal', () => {
+    it('should resolve array literal correctly', () => {
+      const { statements, program } = parseCode('["hello", 123]');
 
-    expect(result.valueType).toBe('ArrayLiteralExpression');
-    expect(result.value).toBeInstanceOf(Array);
-    const array = result.value as ResolverResult[];
-    expect(array.length).toBe(2);
-    expect(array[0].valueType).toBe('StringLiteral');
-    expect(array[0].value).toBe('hello');
-    expect(array[1].valueType).toBe('NumericLiteral');
-    expect(array[1].value).toBe(123);
+      const expression = getFirstExpression(statements);
+      const result = resolveToLiteral(expression, program);
+
+      expect(result.valueType).toBe('ArrayLiteralExpression');
+      expect(result.value).toBeInstanceOf(Array);
+      const array = result.value as ResolverResult[];
+      expect(array.length).toBe(2);
+      expect(array[0].valueType).toBe('StringLiteral');
+      expect(array[0].value).toBe('hello');
+      expect(array[1].valueType).toBe('NumericLiteral');
+      expect(array[1].value).toBe(123);
+    });
   });
 
-  it('should resolve object literal correctly', () => {
-    const factory = ts.factory;
-    const objectLiteral = factory.createObjectLiteralExpression([
-      factory.createPropertyAssignment(
-        factory.createStringLiteral('hello'),
-        factory.createNumericLiteral('123'),
-      ),
-    ]);
-    const result = resolveToLiteral(objectLiteral);
+  describe('object literal', () => {
+    it('should resolve parenthesized object literal correctly', () => {
+      const { statements, program } = parseCode('({ hello: 123 })');
 
-    expect(result.valueType).toBe('ObjectLiteralExpression');
-    expect(result.value).toBeInstanceOf(Object);
-    const object = result.value as Record<string, ResolverResult>;
-    expect(object.hello.valueType).toBe('NumericLiteral');
-    expect(object.hello.value).toBe(123);
+      const expression = getFirstExpression(statements);
+      const result = resolveToLiteral(expression, program);
+
+      expect(result.valueType).toBe('ObjectLiteralExpression');
+      expect(result.value).toEqual({ hello: 123 });
+    });
+
+    it('should correctly resolve a parenthesized object literal with a quoted string literal key', () => {
+      const { statements, program } = parseCode('({ "hello": 123 })');
+
+      const expression = getFirstExpression(statements);
+      const result = resolveToLiteral(expression, program);
+
+      expect(result.valueType).toBe('ObjectLiteralExpression');
+      expect(result.value).toEqual({ hello: 123 });
+    });
+
+    it('should correctly resolve a non-parenthesized object literal with a quoted string literal key', () => {
+      const { statements, program } = parseCode('const obj = { "hello": 123 }');
+
+      expect(statements.length).toBe(1);
+      const statement = statements[0];
+      expect(statement.kind).toBe(ts.SyntaxKind.VariableStatement);
+      const declarationList = (statement as ts.VariableStatement)
+        .declarationList;
+      expect(declarationList.declarations.length).toBe(1);
+      const declaration = declarationList.declarations[0];
+      expect(declaration.kind).toBe(ts.SyntaxKind.VariableDeclaration);
+      const initializer = declaration.initializer;
+      expect(initializer).toBeDefined();
+      expect(initializer!.kind).toBe(ts.SyntaxKind.ObjectLiteralExpression);
+      const result = resolveToLiteral(initializer!, program);
+      expect(result.valueType).toBe('ObjectLiteralExpression');
+      expect(result.value).toEqual({ hello: 123 });
+    });
   });
 });
