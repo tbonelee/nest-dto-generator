@@ -163,14 +163,15 @@ function resolveSymbolToLiteral(
   symbol: ts.Symbol,
   program: ts.Program,
 ): ResolverResult {
+  switch (symbol.flags) {
+    case ts.SymbolFlags.Property:
+      return {
+        valueType: 'StringLiteral',
+        value: symbol.escapedName as string,
+      };
+  }
   const typeChecker = program.getTypeChecker();
   const type = typeChecker.getTypeOfSymbol(symbol);
-  if (symbol.flags === ts.SymbolFlags.Property) {
-    return {
-      valueType: 'StringLiteral',
-      value: symbol.escapedName as string,
-    };
-  }
   return resolveTypeToLiteral(type);
 }
 
@@ -181,7 +182,6 @@ function resolveTypeToLiteral(typeObject: ts.Type): ResolverResult {
         valueType: 'StringLiteral',
         value: (typeObject as ts.StringLiteralType).value,
       };
-    case ts.TypeFlags.Number:
   }
 
   return { valueType: undefined, value: undefined };

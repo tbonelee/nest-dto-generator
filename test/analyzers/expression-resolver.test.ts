@@ -70,6 +70,56 @@ describe('Expression Resolver', () => {
         expect(result.value).toBe(-123);
       });
 
+      it('should resolve floating point numbers', () => {
+        const { statements, program } = parseCode('123.45');
+
+        const expression = getFirstExpression(statements);
+        const result = resolveToLiteral(expression, program);
+
+        expect(result.valueType).toBe('NumericLiteral');
+        expect(result.value).toBe(123.45);
+      });
+
+      it('should resolve scientific notation', () => {
+        const { statements, program } = parseCode('1.23e4');
+
+        const expression = getFirstExpression(statements);
+        const result = resolveToLiteral(expression, program);
+
+        expect(result.valueType).toBe('NumericLiteral');
+        expect(result.value).toBe(12300);
+      });
+
+      it('should resolve hexadecimal numbers', () => {
+        const { statements, program } = parseCode('0xFF');
+
+        const expression = getFirstExpression(statements);
+        const result = resolveToLiteral(expression, program);
+
+        expect(result.valueType).toBe('NumericLiteral');
+        expect(result.value).toBe(255);
+      });
+
+      it('should resolve octal numbers', () => {
+        const { statements, program } = parseCode('0o77');
+
+        const expression = getFirstExpression(statements);
+        const result = resolveToLiteral(expression, program);
+
+        expect(result.valueType).toBe('NumericLiteral');
+        expect(result.value).toBe(63); // 0o77 = 63 in decimal
+      });
+
+      it('should resolve binary numbers', () => {
+        const { statements, program } = parseCode('0b1010');
+
+        const expression = getFirstExpression(statements);
+        const result = resolveToLiteral(expression, program);
+
+        expect(result.valueType).toBe('NumericLiteral');
+        expect(result.value).toBe(10); // 0b1010 = 10 in decimal
+      });
+
       it('should resolve big integers', () => {
         const { statements, program } = parseCode('123n');
 
