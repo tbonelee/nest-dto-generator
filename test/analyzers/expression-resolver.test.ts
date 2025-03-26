@@ -161,6 +161,80 @@ describe('Expression Resolver', () => {
         expect(result.valueType).toBe('StringLiteral');
         expect(result.value).toBe('hello');
       });
+
+      it('should resolve strings with escape sequences', () => {
+        const { statements, program } = parseCode(
+          // eslint-disable-next-line no-useless-escape
+          '"hello\\nworld\\t\\r\\v\\b\\f\\\'\\\"\\\\"',
+        );
+
+        const expression = getFirstExpression(statements);
+        const result = resolveToLiteral(expression, program);
+
+        expect(result.valueType).toBe('StringLiteral');
+        // eslint-disable-next-line no-useless-escape
+        expect(result.value).toBe('hello\nworld\t\r\v\b\f\'\"\\');
+      });
+
+      it('should resolve strings with unicode escape sequences', () => {
+        const { statements, program } = parseCode('"\\u{1F600}\\u0041"');
+
+        const expression = getFirstExpression(statements);
+        const result = resolveToLiteral(expression, program);
+
+        expect(result.valueType).toBe('StringLiteral');
+        expect(result.value).toBe('😀A');
+      });
+
+      it('should resolve strings with direct unicode characters', () => {
+        const { statements, program } = parseCode('"😀A한글"');
+
+        const expression = getFirstExpression(statements);
+        const result = resolveToLiteral(expression, program);
+
+        expect(result.valueType).toBe('StringLiteral');
+        expect(result.value).toBe('😀A한글');
+      });
+
+      it('should resolve strings with unicode surrogate pairs', () => {
+        const { statements, program } = parseCode('"👨‍👩‍👧‍👦"');
+
+        const expression = getFirstExpression(statements);
+        const result = resolveToLiteral(expression, program);
+
+        expect(result.valueType).toBe('StringLiteral');
+        expect(result.value).toBe('👨‍👩‍👧‍👦');
+      });
+
+      it('should resolve template literals with numeric expressions', () => {
+        const { statements, program } = parseCode('`Value: ${123}`');
+
+        const expression = getFirstExpression(statements);
+        const result = resolveToLiteral(expression, program);
+
+        expect(result.valueType).toBe('StringLiteral');
+        expect(result.value).toBe('Value: 123');
+      });
+
+      it('should resolve template literals with string expressions', () => {
+        const { statements, program } = parseCode('`Hello ${"world"}`');
+
+        const expression = getFirstExpression(statements);
+        const result = resolveToLiteral(expression, program);
+
+        expect(result.valueType).toBe('StringLiteral');
+        expect(result.value).toBe('Hello world');
+      });
+
+      it('should resolve template literals with multiple expressions', () => {
+        const { statements, program } = parseCode('`${1} + ${2} = ${3}`');
+
+        const expression = getFirstExpression(statements);
+        const result = resolveToLiteral(expression, program);
+
+        expect(result.valueType).toBe('StringLiteral');
+        expect(result.value).toBe('1 + 2 = 3');
+      });
     });
 
     describe('Regular Expressions', () => {
