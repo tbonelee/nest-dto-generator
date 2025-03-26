@@ -85,6 +85,11 @@ export function resolveToLiteral(
         valueType: 'FalseKeyword',
         value: false,
       };
+    case ts.SyntaxKind.PrefixUnaryExpression:
+      return resolvePrefixUnaryExpressionToLiteral(
+        expr as ts.PrefixUnaryExpression,
+        program,
+      );
     case ts.SyntaxKind.ArrayLiteralExpression:
       return {
         valueType: 'ArrayLiteralExpression',
@@ -130,6 +135,24 @@ export function resolveToLiteral(
         };
       } else {
         return resolveSymbolToLiteral(symbol, program);
+      }
+    }
+  }
+  return { valueType: undefined, value: undefined };
+}
+
+function resolvePrefixUnaryExpressionToLiteral(
+  expr: ts.PrefixUnaryExpression,
+  program: ts.Program,
+): ResolverResult {
+  switch (expr.operator) {
+    case ts.SyntaxKind.MinusToken: {
+      const result = resolveToLiteral(expr.operand, program);
+      if (result.valueType === 'NumericLiteral') {
+        return {
+          valueType: 'NumericLiteral',
+          value: -result.value,
+        };
       }
     }
   }

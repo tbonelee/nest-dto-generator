@@ -60,6 +60,16 @@ describe('Expression Resolver', () => {
         expect(result.value).toBe(123);
       });
 
+      it('should resolve negative numbers', () => {
+        const { statements, program } = parseCode('-123');
+
+        const expression = getFirstExpression(statements);
+        const result = resolveToLiteral(expression, program);
+
+        expect(result.valueType).toBe('NumericLiteral');
+        expect(result.value).toBe(-123);
+      });
+
       it('should resolve big integers', () => {
         const { statements, program } = parseCode('123n');
 
