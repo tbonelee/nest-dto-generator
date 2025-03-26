@@ -34,6 +34,10 @@ export type ResolverResult =
       value: Record<string, ResolverResult>;
     }
   | {
+      valueType: 'Identifier';
+      value: string;
+    }
+  | {
       valueType: undefined;
       value: undefined;
     };
@@ -45,7 +49,10 @@ export type ResolverResult =
  * @param expr: ts.Node
  * @returns ResolverResult
  */
-export function resolveToLiteral(expr: ts.Node): ResolverResult {
+export function resolveToLiteral(
+  expr: ts.Node,
+  program: ts.Program,
+): ResolverResult {
   switch (expr.kind) {
     case ts.SyntaxKind.NumericLiteral:
       return {
@@ -85,29 +92,43 @@ export function resolveToLiteral(expr: ts.Node): ResolverResult {
     case ts.SyntaxKind.ArrayLiteralExpression:
       return {
         valueType: 'ArrayLiteralExpression',
-        value: (expr as ts.ArrayLiteralExpression).elements.map(
-          resolveToLiteral,
+        value: (expr as ts.ArrayLiteralExpression).elements.map((element) =>
+          resolveToLiteral(element, program),
         ),
       };
+    case ts.SyntaxKind.ParenthesizedExpression:
+      return resolveToLiteral(
+        (expr as ts.ParenthesizedExpression).expression,
+        program,
+      );
     case ts.SyntaxKind.ObjectLiteralExpression:
       return {
         valueType: 'ObjectLiteralExpression',
         value: (expr as ts.ObjectLiteralExpression).properties.reduce(
           (acc, prop) => {
-            console.log(ts.SyntaxKind[prop.kind]);
             if (ts.isPropertyAssignment(prop)) {
-              if (ts.isStringLiteral(prop.name)) {
-                acc[prop.name.text] = resolveToLiteral(prop.initializer);
-              } else if (ts.isIdentifier(prop.name)) {
-                // TODO: Implement this
-                throw new Error('Not implemented');
-              }
+              const key = resolveToLiteral(prop.name, program);
+              const value = resolveToLiteral(prop.initializer, program);
+              // @ts-expect-error: ObjectLiteralExpression.properties is not typed
+              acc[key.value] = value.value;
             }
             return acc;
           },
           {} as Record<string, ResolverResult>,
         ),
       };
+    case ts.SyntaxKind.Identifier: {
+      const typeChecker = program.getTypeChecker();
+      const symbol = typeChecker.getSymbolAtLocation(expr);
+      if (symbol === undefined) {
+        // treat the node as String Literal
+        return {
+          valueType: 'StringLiteral',
+          // @ts-expect-error: Identifier.escapedText is not typed
+          value: (expr as ts.Identifier).escapedText,
+        };
+      }
+    }
   }
   return { valueType: undefined, value: undefined };
 }
