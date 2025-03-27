@@ -27,11 +27,11 @@ export type ResolverResult =
     }
   | {
       valueType: 'ArrayLiteralExpression';
-      value: ResolverResult[];
+      value: unknown[];
     }
   | {
       valueType: 'ObjectLiteralExpression';
-      value: Record<string, ResolverResult>;
+      value: Record<string, unknown>;
     }
   | {
       valueType: undefined;
@@ -98,9 +98,9 @@ export function resolveToLiteral(
     case ts.SyntaxKind.ArrayLiteralExpression:
       return {
         valueType: 'ArrayLiteralExpression',
-        value: (expr as ts.ArrayLiteralExpression).elements.map((element) =>
-          resolveToLiteral(element, program),
-        ),
+        value: (expr as ts.ArrayLiteralExpression).elements
+          .map((element) => resolveToLiteral(element, program))
+          .map((res) => res.value),
       };
     case ts.SyntaxKind.ParenthesizedExpression:
       return resolveToLiteral(
@@ -120,23 +120,33 @@ export function resolveToLiteral(
             if (ts.isPropertyAssignment(prop)) {
               const key = resolveToLiteral(prop.name, program);
               const value = resolveToLiteral(prop.initializer, program);
-              // @ts-expect-error: ObjectLiteralExpression.properties is not typed
-              acc[key.value] = value.value;
+              acc[key.value as string] = value.value;
             }
             return acc;
           },
-          {} as Record<string, ResolverResult>,
+          {} as Record<string, unknown>,
         ),
       };
     case ts.SyntaxKind.Identifier: {
       const typeChecker = program.getTypeChecker();
-      const symbol = typeChecker.getSymbolAtLocation(expr);
+      let symbol = typeChecker.getSymbolAtLocation(expr);
+      if (symbol && symbol.flags === ts.SymbolFlags.Alias) {
+        symbol = typeChecker.getAliasedSymbol(symbol);
+      }
       if (symbol === undefined) {
         // treat the node as String Literal
         return {
           valueType: 'StringLiteral',
           // @ts-expect-error: Identifier.escapedText is not typed
           value: (expr as ts.Identifier).escapedText,
+        };
+      } else if (
+        symbol.valueDeclaration &&
+        symbol.valueDeclaration.kind === ts.SyntaxKind.PropertyAssignment
+      ) {
+        return {
+          valueType: 'StringLiteral',
+          value: symbol.escapedName as string,
         };
       } else {
         return resolveSymbolToLiteral(symbol, program);
@@ -168,28 +178,80 @@ function resolveSymbolToLiteral(
   symbol: ts.Symbol,
   program: ts.Program,
 ): ResolverResult {
+  const typeChecker = program.getTypeChecker();
   switch (symbol.flags) {
     case ts.SymbolFlags.Property:
       return {
         valueType: 'StringLiteral',
         value: symbol.escapedName as string,
       };
+    case ts.SymbolFlags.ObjectLiteral: {
+      if (symbol.valueDeclaration) {
+        return resolveToLiteral(symbol.valueDeclaration, program);
+      }
+    }
   }
-  const typeChecker = program.getTypeChecker();
   const type = typeChecker.getTypeOfSymbol(symbol);
-  return resolveTypeToLiteral(type);
+  return resolveTypeToLiteral(type, program);
 }
 
-function resolveTypeToLiteral(typeObject: ts.Type): ResolverResult {
+function resolveTypeToLiteral(
+  typeObject: ts.Type,
+  program: ts.Program,
+): ResolverResult {
   switch (typeObject.flags) {
     case ts.TypeFlags.StringLiteral:
       return {
         valueType: 'StringLiteral',
         value: (typeObject as ts.StringLiteralType).value,
       };
+    case ts.TypeFlags.NumberLiteral:
+      return {
+        valueType: 'NumericLiteral',
+        value: (typeObject as ts.NumberLiteralType).value,
+      };
+    case ts.TypeFlags.Object: {
+      return resolveObjectTypeToLiteral(typeObject as ts.ObjectType, program);
+    }
   }
 
   return { valueType: undefined, value: undefined };
+}
+
+function resolveObjectTypeToLiteral(
+  typeObject: ts.ObjectType,
+  program: ts.Program,
+): ResolverResult {
+  switch (typeObject.objectFlags) {
+    case ts.ObjectFlags.ArrayLiteral:
+      throw new Error();
+    case ts.ObjectFlags.ObjectLiteral:
+      throw new Error();
+    case ts.ObjectFlags.Reference:
+      return resolveTypeReferenceToLiteral(
+        typeObject as ts.TypeReference,
+        program,
+      );
+  }
+  const symbol = typeObject.symbol;
+  if (symbol) {
+    return resolveSymbolToLiteral(symbol, program);
+  }
+  return { valueType: undefined, value: undefined };
+}
+
+function resolveTypeReferenceToLiteral(
+  typeObject: ts.TypeReference,
+  program: ts.Program,
+): ResolverResult {
+  const typeChecker = program.getTypeChecker();
+  const typeArguments = typeChecker.getTypeArguments(typeObject);
+  return {
+    valueType: 'ArrayLiteralExpression',
+    value: typeArguments
+      .map((arg) => resolveTypeToLiteral(arg, program))
+      .map((res) => res.value),
+  };
 }
 
 function resolveTemplateExpressionToLiteral(
