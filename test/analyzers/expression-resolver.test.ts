@@ -371,8 +371,79 @@ describe('Expression Resolver', () => {
       expect(result.value).toBe('hello');
     });
 
-    it('should resolve imported variables to their values', () => {
-      const fixtureDir = path.join(__dirname, 'fixtures', 'two-files');
+    it('should resolve imported constants with as const', () => {
+      const fixtureDir = path.join(
+        __dirname,
+        'fixtures',
+        'two-files-with-as-const',
+      );
+      const constantsPath = path.join(fixtureDir, 'constants.ts');
+      const importsPath = path.join(fixtureDir, 'imports.ts');
+
+      const program = ts.createProgram([constantsPath, importsPath], {
+        target: ts.ScriptTarget.Latest,
+        module: ts.ModuleKind.CommonJS,
+        moduleResolution: ts.ModuleResolutionKind.NodeNext,
+        esModuleInterop: true,
+        strict: true,
+      });
+
+      const sourceFile = program.getSourceFile(importsPath);
+      expect(sourceFile).toBeDefined();
+
+      const statements = sourceFile!.statements;
+      expect(statements.length).toBe(5); // 1 import + 4 expressions
+
+      // Test STRING_CONSTANT
+      const stringStatement = statements[1];
+      expect(stringStatement.kind).toBe(ts.SyntaxKind.ExpressionStatement);
+      const stringResult = resolveToLiteral(
+        (stringStatement as ts.ExpressionStatement).expression,
+        program,
+      );
+      expect(stringResult.valueType).toBe('StringLiteral');
+      expect(stringResult.value).toBe('hello world');
+
+      // Test NUMBER_CONSTANT
+      const numberStatement = statements[2];
+      expect(numberStatement.kind).toBe(ts.SyntaxKind.ExpressionStatement);
+      const numberResult = resolveToLiteral(
+        (numberStatement as ts.ExpressionStatement).expression,
+        program,
+      );
+      expect(numberResult.valueType).toBe('NumericLiteral');
+      expect(numberResult.value).toBe(42);
+
+      // Test ARRAY_CONSTANT
+      const arrayStatement = statements[3];
+      expect(arrayStatement.kind).toBe(ts.SyntaxKind.ExpressionStatement);
+      const arrayResult = resolveToLiteral(
+        (arrayStatement as ts.ExpressionStatement).expression,
+        program,
+      );
+      expect(arrayResult.valueType).toBe('ArrayLiteralExpression');
+      expect(arrayResult.value).toEqual(['a', 'b', 'c']);
+
+      // Test OBJECT_CONSTANT
+      const objectStatement = statements[4];
+      expect(objectStatement.kind).toBe(ts.SyntaxKind.ExpressionStatement);
+      const objectResult = resolveToLiteral(
+        (objectStatement as ts.ExpressionStatement).expression,
+        program,
+      );
+      expect(objectResult.valueType).toBe('ObjectLiteralExpression');
+      expect(objectResult.value).toEqual({
+        key1: 'value1',
+        key2: 123,
+      });
+    });
+
+    it('should resolve imported constants without as const', () => {
+      const fixtureDir = path.join(
+        __dirname,
+        'fixtures',
+        'two-files-without-as-const',
+      );
       const constantsPath = path.join(fixtureDir, 'constants.ts');
       const importsPath = path.join(fixtureDir, 'imports.ts');
 

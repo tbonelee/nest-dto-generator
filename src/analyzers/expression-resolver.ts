@@ -112,6 +112,15 @@ export function resolveToLiteral(
         (expr as ts.ComputedPropertyName).expression,
         program,
       );
+    case ts.SyntaxKind.VariableDeclaration: {
+      const initializer = (expr as ts.VariableDeclaration).initializer;
+      if (initializer) {
+        return resolveToLiteral(initializer, program);
+      }
+      break;
+    }
+    case ts.SyntaxKind.AsExpression:
+      return resolveToLiteral((expr as ts.AsExpression).expression, program);
     case ts.SyntaxKind.ObjectLiteralExpression:
       return {
         valueType: 'ObjectLiteralExpression',
@@ -140,17 +149,9 @@ export function resolveToLiteral(
           // @ts-expect-error: Identifier.escapedText is not typed
           value: (expr as ts.Identifier).escapedText,
         };
-      } else if (
-        symbol.valueDeclaration &&
-        symbol.valueDeclaration.kind === ts.SyntaxKind.PropertyAssignment
-      ) {
-        return {
-          valueType: 'StringLiteral',
-          value: symbol.escapedName as string,
-        };
-      } else {
-        return resolveSymbolToLiteral(symbol, program);
       }
+
+      return resolveSymbolToLiteral(symbol, program);
     }
   }
   return { valueType: undefined, value: undefined };
@@ -189,6 +190,12 @@ function resolveSymbolToLiteral(
       if (symbol.valueDeclaration) {
         return resolveToLiteral(symbol.valueDeclaration, program);
       }
+      break;
+    }
+    case ts.SymbolFlags.BlockScopedVariable: {
+      if (symbol.valueDeclaration) {
+        return resolveToLiteral(symbol.valueDeclaration, program);
+      }
     }
   }
   const type = typeChecker.getTypeOfSymbol(symbol);
@@ -223,10 +230,6 @@ function resolveObjectTypeToLiteral(
   program: ts.Program,
 ): ResolverResult {
   switch (typeObject.objectFlags) {
-    case ts.ObjectFlags.ArrayLiteral:
-      throw new Error();
-    case ts.ObjectFlags.ObjectLiteral:
-      throw new Error();
     case ts.ObjectFlags.Reference:
       return resolveTypeReferenceToLiteral(
         typeObject as ts.TypeReference,

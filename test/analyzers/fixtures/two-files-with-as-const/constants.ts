@@ -1,5 +1,5 @@
-export const STRING_CONSTANT = 'hello world';
-export const NUMBER_CONSTANT = 42;
+export const STRING_CONSTANT = 'hello world' as const;
+export const NUMBER_CONSTANT = 42 as const;
 export const ARRAY_CONSTANT = ['a', 'b', 'c'] as const;
 export const OBJECT_CONSTANT = {
   key1: 'value1',
